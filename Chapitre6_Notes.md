@@ -44,7 +44,7 @@ En tant que scénario à deux issues possibles, des tirages à pile ou face
 suivent une loi binomiale, comme toute variable booléenne prenant une
 valeur vraie ou fausse.
 
-La distribution de Poisson n’a qu’un seul paramètre \(\lambda\), qui
+La distribution de Poisson n’a qu’un seul paramètre \(\\alpha + b\), qui
 décrit tant la moyenne des décomptes.
 
 ``` r
