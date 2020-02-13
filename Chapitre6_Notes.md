@@ -44,7 +44,7 @@ En tant que scénario à deux issues possibles, des tirages à pile ou face
 suivent une loi binomiale, comme toute variable booléenne prenant une
 valeur vraie ou fausse.
 
-La distribution de Poisson n’a qu’un seul paramètre \(\\alpha + b\), qui
+La distribution de Poisson n’a qu’un seul paramètre \(\lambda\), qui
 décrit tant la moyenne des décomptes.
 
 ``` r
@@ -94,3 +94,106 @@ ggplot(data = gg_norm, mapping = aes(x = x, y = value)) +
 ```
 
 ![](Chapitre6_Notes_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+
+Quelle est la probabilité d’obtenir le nombre 0 chez une observation
+continue distribuée normalement dont la moyenne est 0 et l’écart-type
+est de 1? Réponse: 0. La loi normale étant une distribution continue,
+les probabilités non-nulles ne peuvent être calculés que sur des
+intervalles. Par exemple, la probabilité de retrouver une valeur dans
+l’intervalle entre -1 et 2 est calculée en soustrayant la probabilité
+cumulée à -1 de la probabilité cumulée à 2.
+
+``` r
+increment <- 0.01
+x <- seq(-5, 5, by = increment)
+y <- dnorm(x, mean = 0, sd = 1)
+
+prob_between <- c(-1, 2)
+
+gg_norm <- data.frame(x, y)
+gg_auc <- gg_norm %>%
+  filter(x > prob_between[1], x < prob_between[2]) %>%
+  #rbind() utilisé pour bien fermer le polygon dans ggplot
+  rbind(c(prob_between[2], 0)) %>%
+  rbind(c(prob_between[1], 0))
+
+ggplot(data.frame(x, y), aes(x, y)) +
+  geom_polygon(data = gg_auc, fill = '#71ad50') + # #71ad50 est un code de couleur format hexadécimal
+  geom_line()
+```
+
+![](Chapitre6_Notes_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+
+``` r
+# La fonction pnorm calcule la probabilité d'une valeur 
+prob_norm_between <- pnorm(q = prob_between[2], mean = 0, sd = 1) - pnorm(q = prob_between[1], mean = 0, sd = 1)
+print(paste("La probabilité d'obtenir un nombre entre", 
+            prob_between[1], "et", 
+            prob_between[2], "est d'environ", 
+            round(prob_norm_between, 2) * 100, "%"))
+```
+
+    ## [1] "La probabilité d'obtenir un nombre entre -1 et 2 est d'environ 82 %"
+
+La figure ci-dessous montre l’aire sous la courbe répresentant 95% de la
+population
+
+``` r
+increment <- 0.01
+x <- seq(-5, 5, by = increment)
+y <- dnorm(x, mean = 0, sd = 1)
+
+alpha <- 0.05
+prob_between <- c(qnorm(p = alpha/2, mean = 0, sd = 1),
+                  qnorm(p = 1 - alpha/2, mean = 0, sd = 1))
+
+gg_norm <- data.frame(x, y)
+gg_auc <- gg_norm %>%
+  filter(x > prob_between[1], x < prob_between[2]) %>%
+  rbind(c(prob_between[2], 0)) %>%
+  rbind(c(prob_between[1], 0))
+
+ggplot(data = data.frame(x, y), mapping = aes(x, y)) +
+  geom_polygon(data = gg_auc, fill = '#71ad50') + # #71ad50 est un code de couleur format hexadécimal
+  geom_line() +
+  geom_text(data = data.frame(x = prob_between,
+                              y = c(0, 0),
+                              labels = round(prob_between, 2)),
+            mapping = aes(label = labels))
+```
+
+![](Chapitre6_Notes_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+
+En effet, la moyenne suit aussi une distribution normale, dont la
+tendance centrale est la moyenne de la distribution, et dont
+**l’écart-type est noté erreur standard**.On calcule cette erreur en
+divisant **la variance par le nombre d’observations, ou en divisant
+l’écart-type par la racine carrée du nombre d’observations**.
+
+``` r
+increment <- 0.01
+x <- seq(-5, 5, by = increment)
+y <- dnorm(x, mean = 0, sd = 1)
+
+alpha <- 0.05
+prob_between <- c(qnorm(p = alpha/2, mean = 0, sd = 1) / sqrt(10),
+                  qnorm(p = 1 - alpha/2, mean = 0, sd = 1) / sqrt(10))
+
+gg_norm <- data.frame(x, y)
+gg_auc <- gg_norm %>%
+  filter(x > prob_between[1], x < prob_between[2]) %>%
+  rbind(c(prob_between[2], 0)) %>%
+  rbind(c(prob_between[1], 0))
+
+ggplot(data = data.frame(x, y), mapping = aes(x, y)) +
+  geom_polygon(data = gg_auc, fill = '#71ad50') + # #71ad50 est un code de couleur format hexadécimal
+  geom_line() +
+  geom_text(data = data.frame(x = prob_between,
+                              y = c(0, 0),
+                              labels = round(prob_between, 2)),
+            mapping = aes(label = labels))
+```
+
+![](Chapitre6_Notes_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
+**Statistiques descriptives**
