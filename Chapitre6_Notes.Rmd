@@ -144,4 +144,321 @@ ggplot(data = data.frame(x, y), mapping = aes(x, y)) +
 
 **Statistiques descriptives**
 
+```{r message = FALSE, warning = FALSE}
+data("iris")
 
+#Résumé des statistiques des variables contenues dans le data.frame iris
+summary(iris)
+
+# Moyenne des différentes variables sélon le type d'espèce
+iris %>%
+  group_by(Species) %>%
+  summarise_all(mean)
+
+# Quartiles 25, 50 et 75 des difféerentes variables sélon l'espèce
+iris %>%
+  group_by(Species) %>%
+  summarise_all(list(q25 = ~ quantile(., probs = 0.25), 
+                     q50 = ~ quantile(., probs = 0.50),
+                     q75 = ~ quantile(., probs = 0.75)))
+
+# Fonction quantile() pour calculer les quartiles 
+quantile(iris$Sepal.Length[iris$Species == 'setosa'])
+
+# table() décompte par catégorie. prop.table() obtient les proportions
+tableau_croise <- table(iris$Species, 
+                        cut(iris$Sepal.Length, breaks = quantile(iris$Sepal.Length)))
+
+prop.table(tableau_croise)
+```
+
+**Test d'hypothèses**
+
+Par convention, l’hypothèse nulle (écrite $H_{0}$) est l’hypothèse qu’il n’y ait pas d’effet (c’est l’hypothèse de l’avocat du diable 😈) à l’échelle de la population (et non pas à l’échelle de l’échantillon). À l’inverse, l’hypothèse alternative (écrite $H_{1}$) est l’hypothèse qu’il y ait un effet à l’échelle de la population.
+
+_Test de t à un seul échantillon_
+
+L'erreur standard sur la moyenne $ESM = \frac{s}{\sqrt{n}}$
+
+```{r}
+set.seed(33746)
+
+# création d'une population avec distribution normale n = 20, moyenne = 16 et sd = 4
+x <- rnorm(20, 16, 4)
+
+level <-  0.95
+alpha <- 1-level
+
+x_bar <- mean(x)
+s <- sd(x)
+n <- length(x)
+
+error <- qnorm(1 - alpha/2) * s / sqrt(n)
+error
+
+# Intervalle de confiance
+c(x_bar - error, x_bar + error)
+```
+
+Si la moyenne de la population est de 16, un nombre qui se situe dans l’intervalle de confiance on accepte l’hypothèse nulle au seuil 0.05. Si le nombre d’échantillon est réduit (généralement < 30), on passera plutôt par une **distribution de t**, avec $n-1$ degrés de liberté.
+
+```{r}
+error <- qt(1 - alpha/2, n-1) * s / sqrt(n)
+c(x_bar - error, x_bar + error)
+
+#test de t pour vérifier si les données proviennent d'une population dont la moyenne est 18
+t.test(x, mu = 18)
+```
+
+En apliquant le _test de t_ on constate que l'hypothèse altyernative est vraie car $16 \neq 18$.
+
+**Test de Wicolson**
+
+Contrairement au test t, le test de Wicolson ne demand pas des suppositions sur la distribution, car ce test est non-paramétrique basé sur le tri des valeurs. 
+
+```{r message = FALSE, warning = FALSE}
+# La valeur V correspond la somme des rangs positifs
+
+wilcox.test(x, mu = 18)
+```
+
+_Test de t à deux échantillons_
+
+Deux séries de données $x_{1}$ et $x_{2}$ issus de distribution normale, donc, on teste l'hypothèse nulle $\mu_{1}$ et $\mu_{2}$. Ainsi, t est calculée comme :
+
+$$t = \frac{\tilde{x_{1}}-\tilde{x_{1}}}{ESDM}$$
+L’ESDM est l’erreur standard de la différence des moyennes
+
+$$ESDM = \sqrt{ESM_{1}^{2} + ESM_{2}^{2}}$$
+
+Exemple avec iris et la longueur des pétales
+
+```{r message = FALSE, warning = FALSE}
+iris_pl <- iris %>% 
+    filter(Species != "setosa") %>%
+    select(Species, Petal.Length)
+sample_n(iris_pl, 5)
+
+# La variable de sortie est Petal.Length qui varie en foction du groupe Species (Variable d'entrée)
+t.test(formula = Petal.Length ~ Species,
+       data = iris_pl, var.equal = FALSE)
+tt_pl <- t.test(formula = Petal.Length ~ Species,
+                data = iris_pl, var.equal = FALSE)
+summary(tt_pl)
+str(tt_pl)
+
+# Comparaison des variances avec le test de F (Fisher)
+var.test(formula = Petal.Length ~ Species,
+         data = iris_pl)
+
+# Test de Wilcoxon à deux échantillons, même formule que pour test t
+
+wilcox.test(formula = Petal.Length ~ Species,
+       data = iris_pl, var.equal = TRUE)
+```
+
+_Les test pairés_
+
+Utilisés lorsque deux échantollons proviennent d'une même unité expérimentale, il s’agit en fait de tests sur la différence entre deux observations
+
+```{r message = FALSE, warning = FALSE}
+
+set.seed(2555)
+
+n <- 20
+avant <- rnorm(n, 16, 4)
+apres <- rnorm(n, 18, 3)
+
+# Par default paired est FALSE, il faut le mettre comme TRUE pour fair le test pairé
+t.test(avant, apres, paired = TRUE)
+
+wilcox.test(avant, apres, paired = TRUE)
+```
+
+**L'analyse de variance**
+
+L’analyse de variance consiste à comparer des moyennes de plusieurs groupe distribués normalement et de même variance.
+
+```{r}
+pl_aov <- aov(Petal.Length ~ Species, iris)
+summary(pl_aov)
+```
+
+__Les modèles statistiques__
+
+La modélisation statistique consiste à lier de manière explicite des variables de sortie $y$ (ou variables-réponse ou variables dépendantes) à des variables explicatives $x$ (ou variables prédictives / indépendantes / covariables).
+
+_Modèles prédictifs_ conçues pour prédire de manière fiable une ou plusieurs variables-réponse à partir des informations contenues dans les variables qui sont, dans ce cas, prédictives.
+
+Lorsque l’on désire tester des hypothèses pour évaluer quelles variables expliquent la réponse, on parlera de _modélisation (et de variables) explicatives_.
+
+Les _Variables fixes_ sont les variables testées lors de l'expérience : dose du traitement, espèce, météo.
+
+Les _Variables aléatoires_ sont les sources de variation qui génèrent du bruit dans le modèle : les unités expérimentales ou le temps lors de mesures répétées.
+
+_Modèles fixes_ juste effets fixes
+
+_Modèles mixtes_ ont des variables aléatoires et fixes.
+
+- _Modèles à effets fixes_
+
+En particulier, le test de t est régression linéaire univariée (à une seule variable explicative) dont la variable explicative comprend deux catégories. De même, l’anova est une régression linéaire univariée dont la variable explicative comprend plusieurs catégories.
+
+Modèle lineaire univarié aura la forme $y = \beta_{0} + \beta_{1}x + \epsilon$, où $\epsilon$ est l'erreur.
+
+- _Modèle linéaire univarié avec variable continue_
+
+```{r message = FALSE, warning = FALSE}
+library("agridat")
+data("lasrosas.corn")
+sample_n(lasrosas.corn, 10)
+
+# nitro comme variable explicative ou indépendante et yield comme variable dépendante
+ggplot(data = lasrosas.corn, mapping = aes(x = nitro, y = yield)) +
+    geom_point()
+
+modlin_1 <- lm(yield ~ nitro, data = lasrosas.corn)
+summary(modlin_1)
+```
+
+Des résultats obtenus la médiane des résidus devrait s'approcher de la moyenne des résidus (toujours 0). Bien que le -3.079 peut sembler important, il faut prendre en considération de l’échelle de y. La distribution des résidus mérite d’être davantage investiguée.
+
+```{r message = FALSE, warning = FALSE}
+# Calcul des intervalles de confiance
+confint(modlin_1, level = 0.95)
+
+# Dans le résultat de la fonction coefficients() on obtient l'intercept et la pente
+coefficients(modlin_1)
+
+# Éxecution du modèle sur les données qui ont servi à le générer
+predict(modlin_1)[1:5]
+
+#Ou sur des données externes
+nouvelles_donnees <- data.frame(nitro = seq(from = 0, to = 100, by = 5))
+predict(modlin_1, newdata = nouvelles_donnees)[1:5]
+
+```
+- _Analyse des résidus_
+
+Vecteur $\epsilon$ qui est un décalage entre le données et le modèle. Les résidus sont le résultat de $\epsilon = y - \hat{y}$ ou d'utiliser la fonction `residuals()`.
+
+```{r message = FALSE, warning = FALSE}
+res_df <- data.frame(nitro = lasrosas.corn$nitro,
+                     residus_lm = residuals(modlin_1), 
+                     residus_calcul = lasrosas.corn$yield - predict(modlin_1))
+sample_n(res_df, 10)
+```
+
+Dans une bonne régression linéaire, on ne retrouvera pas de structure identifiable dans les résidus, c’est-à-dire que les résidus sont bien distribués de part et d’autre du modèle de régression.
+
+```{r message = FALSE, warning = FALSE}
+ggplot(res_df, aes(x = nitro, y = residus_lm)) +
+  geom_point() +
+  labs(x = "Dose N", y = "Résidus") +
+  geom_hline(yintercept = 0, col = "red", size = 1)
+```
+
+On pourra aussi inspecter les résidus avec un graphique de leur distribution. L’histogramme devrait présenter une distribution normale. Les tests de normalité comme le test de Shapiro-Wilk peuvent aider, mais ils sont généralement très sévères.
+
+```{r message = FALSE, warning = FALSE}
+ggplot(res_df, aes(x = residus_lm)) +
+  geom_histogram(binwidth = 2, color = "white") +
+  labs(x = "Residual")
+
+#Test de Shapito-Wilk
+shapiro.test(res_df$residus_lm)
+```
+
+L’hypothèse nulle que la distribution est normale est rejetée au seuil 0.05. Dans notre cas, il est évident que la sévérité du test n’est pas en cause, car les résidus semble générer trois ensembles. **Ceci indique que les variables explicatives sont insuffisantes pour expliquer la variabilité de la variable-réponse**.
+
+## **Régression multiple**
+
+Lorsque l’on combine plusieurs variables explicatives, on crée un modèle de régression multivariée ou multiple :
+
+$$y = X\beta + \epsilon$$
+
+Où, $X$ est la matrice du modèle à $n$ observations et $p$ variables, $\beta$ est la matrice des $p$ coefficients, $\beta_{0}$ est l'intercept qui multiplie la première colonne de la matrice $X$ et $\epsilon$ est l'erreur de chaque observation.
+
+_Modèles linéaires univariés avec variable catégorielle nominale_
+
+Une variable catégorielle nominale (non ordonnée) utilisée à elle seule dans un modèle comme variable explicative, est un cas particulier de régression multiple.
+
+```{r message = FALSE, warning = FALSE}
+data <- data.frame(cultivar = c('Superior', 'Superior', 'Superior', 'Russet', 'Kenebec', 'Russet'))
+model.matrix(~cultivar, data)
+```
+
+L’information contenue dans un nombre $C$ de catégorie peut être encodée dans un nombre $C - 1$ de colonnes. C’est pourquoi, dans une analyse statistique, on désignera une catégorie comme une référence, que l’on détecte lorsque toutes les autres catégories sont encodées avec des $0$ : cette référence sera incluse dans _l’intercept_. Dans l'exemple ci-dessus l'intercept a été le cultivar _kenebec_. On peut modifier la référence avec la fonction `relevel()`.
+
+```{r message = FALSE, warning = FALSE}
+levels(lasrosas.corn$topo)
+ggplot(lasrosas.corn, aes(x = topo, y = yield)) +
+    geom_boxplot()
+
+# La fonction model.matrix() sert à générer l'encodage catégoriel
+# Dans ce cas l'intercept est le niveau E
+model.matrix(~ topo, data = lasrosas.corn) %>% 
+    tbl_df() %>% # tbl_df pour transformer la matrice en tableau
+    sample_n(10) 
+```
+
+Cette matrice de modèle utilisée pour la régression donnera un intercept, qui indiquera l’effet de la catégorie de référence, puis les différences entre les catégories subséquentes et la catégorie de référence.
+
+```{r message = FALSE, warning = FALSE}
+modlin_4 <- lm(yield ~ topo, data = lasrosas.corn)
+summary(modlin_4)
+
+res_df2 <- data.frame(topo = lasrosas.corn$topo,
+                     residus_lm = residuals(modlin_4), 
+                     residus_calcul = lasrosas.corn$yield - predict(modlin_4))
+sample_n(res_df2, 10)
+
+ggplot(res_df2, aes(x = topo, y = residus_lm)) +
+  geom_point() +
+  labs(x = "Niveau Topo", y = "Résidus") +
+  geom_hline(yintercept = 0, col = "red", size = 1)
+
+#Histograme des résidus régression variable catégorielle nominale
+ggplot(res_df2, aes(x = residus_lm)) +
+  geom_histogram(binwidth = 2, color = "white") +
+  labs(x = "Residual")
+
+#Test de Shapito-Wilk
+shapiro.test(res_df2$residus_lm)
+```
+
+### **Régresion multiple à plusieurs variables**
+
+```{r message = FALSE, warning = FALSE}
+head(lasrosas.corn)
+
+# lat = latitude long = longitude bv = teneur en matière organique plus bv = moins MO
+modlin_5 <- lm(yield ~ lat + long + nitro + topo + bv,
+               data = lasrosas.corn)
+summary(modlin_5)
+```
+
+Les variables ne sont pas comparables puisque n'ont pas la même échelle
+
+```{r message = FALSE, warning = FALSE}
+lasrosas.corn_sc <- lasrosas.corn %>%
+    mutate_at(c("lat", "long", "nitro", "bv"), scale)
+
+modlin_5_sc <- lm(yield ~ lat + long + nitro + topo + bv,
+               data = lasrosas.corn_sc)
+summary(modlin_5_sc)
+```
+
+On pourra retrouver des cas où l’effet combiné de plusieurs variables diffère de l’effet des deux variables prises séparément 
+
+```{r message = FALSE, warning = FALSE}
+
+# Dans nitro*topo l'étoile (astérisque) sert à évaluer l'effet de l'interaction
+modlin_5_sc <- lm(yield ~ nitro*topo,
+               data = lasrosas.corn_sc)
+summary(modlin_5_sc)
+```
+
+Les résultats montre des effets de l’azote et des catégories topographiques, mais il y a davantage d’incertitude sur les interactions, indiquant que l’effet statistique de l’azote est sensiblement le même indépendamment des niveaux topographiques. 
+
+**Il faut ne pas surcharger le modèle** puisque plus il y a d’interactions, plus votre modèle comprendra de variables et vos tests d’hypothèse perdront en puissance statistique.
